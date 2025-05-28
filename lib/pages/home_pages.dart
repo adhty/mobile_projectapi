@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sisfo_sarpas/pages/barang/barang_pages.dart';
 import 'package:sisfo_sarpas/pages/peminjaman/peminjaman_pages.dart';
 import 'package:sisfo_sarpas/pages/pengembalian/pengembalian_pages.dart';
+import 'package:sisfo_sarpas/pages/pengembalian/riwayat_pengembalian_page.dart';
+import 'package:sisfo_sarpas/pages/profil/profil_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,6 +19,16 @@ class _HomePageState extends State<HomePage> {
     BarangPage(),
     PeminjamanPage(),
     PengembalianPage(),
+    RiwayatPengembalianPage(),
+    ProfilPage(), // Tambahkan halaman profil
+  ];
+
+  static const List<String> _appBarTitles = [
+    'Daftar Barang',
+    'Peminjaman',
+    'Pengembalian',
+    'Riwayat Pengembalian',
+    'Profil',
   ];
 
   void _onItemTapped(int index) {
@@ -28,18 +40,25 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Barang'),
+      appBar: _selectedIndex == 4 ? null : AppBar(
+        title: Text(_appBarTitles[_selectedIndex]),
+        backgroundColor: Colors.blue.shade700,
+        foregroundColor: Colors.white,
       ),
       body: _widgetOptions.elementAt(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed, // Biar bisa lebih dari 3 item
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: Colors.blue.shade700,
+        unselectedItemColor: Colors.grey,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
+        elevation: 8,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.inventory),
-            label: 'Home',
+            label: 'Barang',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.arrow_circle_down),
@@ -47,7 +66,11 @@ class _HomePageState extends State<HomePage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.arrow_circle_up),
-            label: 'Kembalikan',
+            label: 'Kembali',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: 'Riwayat',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
@@ -55,6 +78,19 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+      floatingActionButton: _selectedIndex == 0 
+          ? FloatingActionButton(
+              onPressed: () {
+                // Navigasi ke halaman peminjaman
+                setState(() {
+                  _selectedIndex = 1; // Index 1 adalah halaman peminjaman
+                });
+              },
+              backgroundColor: Colors.blue.shade700,
+              tooltip: 'Pinjam Barang',
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 }

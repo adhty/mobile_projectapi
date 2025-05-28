@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'barang_model.dart';
 import 'barang_service.dart';
+import 'barang_detail_page.dart';
 
 class BarangPage extends StatefulWidget {
   const BarangPage({super.key});
@@ -40,21 +41,32 @@ class _BarangPageState extends State<BarangPage> {
                 final barang = barangList[index];
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: ListTile(
-                    leading: barang.foto.isNotEmpty
-                        ? Image.network(
-                            'http://127.0.0.1:8000/storage/${barang.foto}',
-                            width: 50,
-                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
-                          )
-                        : const Icon(Icons.image_not_supported),
-                    title: Text(barang.nama),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Stok: ${barang.jumlahBarang}'),
-                        
-                      ],
+                  child: InkWell(
+                    onTap: () {
+                      // Navigasi ke halaman detail barang
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => BarangDetailPage(barang: barang),
+                        ),
+                      );
+                    },
+                    child: ListTile(
+                      leading: barang.foto.isNotEmpty
+                          ? Image.network(
+                              'http://127.0.0.1:8000/storage/${barang.foto}',
+                              width: 50,
+                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+                            )
+                          : const Icon(Icons.image_not_supported),
+                      title: Text(barang.nama),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Stok: ${barang.jumlahBarang}'),
+                        ],
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     ),
                   ),
                 );

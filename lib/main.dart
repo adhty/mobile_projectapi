@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sisfo_sarpas/pages/home_pages.dart';
 import 'package:sisfo_sarpas/pages/login_pages.dart';
-import 'package:sisfo_sarpas/pages/pengembalian/pengembalian_pages.dart';
+import 'package:sisfo_sarpas/pages/profil/profil_page.dart';
 
 void main() {
   runApp(const MainApp());
@@ -15,10 +15,11 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       title: 'Aplikasi Login',
       debugShowCheckedModeBanner: false,
-      home: const LoginPage(),
+      home: const LoginPage(), // Definisikan home
       routes: {
+        
         '/home': (context) => const HomePage(),
-        '/pengembalian': (context) => const PengembalianPage(),
+        '/profile': (context) => const ProfilPage(),
       },
     );
   }
