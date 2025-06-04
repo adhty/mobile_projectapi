@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'pengembalian_model.dart';
-import 'pengembalian_service.dart';
+import '../pengembalian/pengembalian_model.dart';
+import '../pengembalian/pengembalian_service.dart';
 
 class RiwayatPengembalianPage extends StatefulWidget {
   const RiwayatPengembalianPage({super.key});
@@ -33,12 +33,24 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
         _isLoading = false;
       });
     } catch (e) {
+      print('Error dalam _loadRiwayatPengembalian: $e');
       setState(() {
+        _riwayatPengembalian = [];
         _isLoading = false;
       });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memuat riwayat pengembalian: $e')),
+          SnackBar(
+            content: const Text('Gagal memuat riwayat pengembalian. Silakan coba lagi nanti.'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Coba Lagi',
+              onPressed: _loadRiwayatPengembalian,
+              textColor: Colors.white,
+            ),
+          ),
         );
       }
     }
@@ -88,18 +100,35 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
                       itemBuilder: (context, index) {
                         final pengembalian = _riwayatPengembalian[index];
                         final statusColor = _getStatusColor(pengembalian.status);
+                        final Color badgeColor = statusColor == 'green'
+                            ? Colors.green.shade600
+                            : statusColor == 'red'
+                                ? Colors.red.shade600
+                                : statusColor == 'orange'
+                                    ? Colors.orange.shade700
+                                    : Colors.blue.shade600;
+
+                        String formattedDate = '';
+                        try {
+                          final dt = DateTime.parse(pengembalian.tanggalPengembalian);
+                          formattedDate = DateFormat('dd MMM yyyy, HH:mm').format(dt);
+                        } catch (_) {
+                          formattedDate = pengembalian.tanggalPengembalian;
+                        }
 
                         return Card(
-                          elevation: 3,
+                          elevation: 5,
                           margin: const EdgeInsets.only(bottom: 16),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                           ),
+                          shadowColor: Colors.blue.shade100,
                           child: Padding(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(18),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // Header: nama barang + status badge
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
@@ -107,48 +136,59 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
                                       child: Text(
                                         pengembalian.namaBarang,
                                         style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.black87,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                       decoration: BoxDecoration(
-                                        color: statusColor == 'green'
-                                            ? Colors.green
-                                            : statusColor == 'red'
-                                                ? Colors.red
-                                                : statusColor == 'orange'
-                                                    ? Colors.orange
-                                                    : Colors.blue,
-                                        borderRadius: BorderRadius.circular(12),
+                                        color: badgeColor,
+                                        borderRadius: BorderRadius.circular(20),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: badgeColor.withOpacity(0.4),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ],
                                       ),
                                       child: Text(
-                                        pengembalian.status,
+                                        pengembalian.status.toUpperCase(),
                                         style: const TextStyle(
                                           color: Colors.white,
-                                          fontWeight: FontWeight.bold,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 1,
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                Text('Tanggal Pengembalian: ${pengembalian.tanggalPengembalian}'),
-                                Text('Kondisi Barang: ${pengembalian.kondisiBarang.substring(0, 1).toUpperCase() + pengembalian.kondisiBarang.substring(1)}'),
-                                Text('Jumlah Dikembalikan: ${pengembalian.jumlahKembali}'),
+                                const SizedBox(height: 14),
+
+                                // Info rows dengan icon
+                                _infoRow(Icons.calendar_today, 'Tanggal Pengembalian', formattedDate),
+                                _infoRow(
+                                  Icons.info_outline,
+                                  'Kondisi Barang',
+                                  pengembalian.kondisiBarang[0].toUpperCase() +
+                                      pengembalian.kondisiBarang.substring(1),
+                                ),
+                                _infoRow(Icons.confirmation_number, 'Jumlah Dikembalikan',
+                                    '${pengembalian.jumlahKembali}'),
                                 if (pengembalian.biayaDenda != null && pengembalian.biayaDenda! > 0)
-                                  Text(
-                                    'Biaya Denda: Rp ${NumberFormat('#,###').format(pengembalian.biayaDenda)}',
-                                    style: const TextStyle(
-                                      color: Colors.red,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                  _infoRow(
+                                    Icons.money_off,
+                                    'Biaya Denda',
+                                    'Rp ${NumberFormat('#,###').format(pengembalian.biayaDenda)}',
+                                    valueColor: Colors.red.shade700,
+                                    iconColor: Colors.red.shade700,
                                   ),
                                 if (pengembalian.catatan != null && pengembalian.catatan!.isNotEmpty)
-                                  Text('Catatan: ${pengembalian.catatan}'),
+                                  _infoRow(Icons.note, 'Catatan', pengembalian.catatan!),
                               ],
                             ),
                           ),
@@ -159,9 +199,33 @@ class _RiwayatPengembalianPageState extends State<RiwayatPengembalianPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _loadRiwayatPengembalian,
         backgroundColor: Colors.blue.shade700,
+        tooltip: 'Muat Ulang Riwayat',
         child: const Icon(Icons.refresh),
       ),
     );
   }
-}
 
+  Widget _infoRow(IconData icon, String label, String value,
+      {Color valueColor = Colors.black87, Color iconColor = Colors.blue}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: iconColor),
+          const SizedBox(width: 10),
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: valueColor,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

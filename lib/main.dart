@@ -21,6 +21,7 @@ class MainApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/profile': (context) => const ProfilPage(),
       },
+      
     );
   }
 }

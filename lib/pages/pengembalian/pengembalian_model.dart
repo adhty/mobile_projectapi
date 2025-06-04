@@ -19,7 +19,7 @@ class Pengembalian {
     required this.kondisiBarang,
     this.catatan,
     required this.status,
-    required this.jumlahKembali,
+    required this.jumlahKembali,  
     this.namaPengembalian,
     this.biayaDenda,
     this.peminjaman,
@@ -28,30 +28,28 @@ class Pengembalian {
   });
 
   factory Pengembalian.fromJson(Map<String, dynamic> json) {
-    // Print untuk debugging
-    print('Parsing pengembalian JSON: $json');
-
-    String? namaPeminjam;
+    // Ekstrak nama barang
     String namaBarang = 'Barang tidak diketahui';
-
-    // Ekstrak nama peminjam dari field nama_pengembalian jika ada
-    if (json.containsKey('nama_pengembalian')) {
-      namaPeminjam = json['nama_pengembalian'];
-    } else if (json.containsKey('nama_pengembalian')) {
-      namaPeminjam = json['nama_pengembalian'];
+    
+    // Coba ambil dari objek peminjaman jika ada
+    if (json['peminjaman'] != null && json['peminjaman'] is Map) {
+      if (json['peminjaman']['barang'] != null && json['peminjaman']['barang'] is Map) {
+        namaBarang = json['peminjaman']['barang']['nama'] ?? 'Barang tidak diketahui';
+      } else if (json['peminjaman']['nama_barang'] != null) {
+        namaBarang = json['peminjaman']['nama_barang'];
+      }
     }
-
-    // Ekstrak nama barang dari peminjaman jika ada
-    if (json.containsKey('peminjaman') && json['peminjaman'] != null) {
-      if (json['peminjaman'].containsKey('barang') && json['peminjaman']['barang'] != null) {
-        final barang = json['peminjaman']['barang'];
-        if (barang is Map) {
-          if (barang.containsKey('nama')) {
-            namaBarang = barang['nama'];
-          } else if (barang.containsKey('nama_barang')) {
-            namaBarang = barang['nama_barang'];
-          }
-        }
+    
+    // Jika tidak ada di peminjaman, coba ambil langsung dari objek pengembalian
+    if (namaBarang == 'Barang tidak diketahui' && json['nama_barang'] != null) {
+      namaBarang = json['nama_barang'];
+    }
+    
+    // Ekstrak nama peminjam
+    String? namaPeminjam;
+    if (json['peminjaman'] != null && json['peminjaman'] is Map) {
+      if (json['peminjaman']['user'] != null && json['peminjaman']['user'] is Map) {
+        namaPeminjam = json['peminjaman']['user']['name'];
       }
     }
 
@@ -88,5 +86,9 @@ class Pengembalian {
     };
   }
 }
+
+
+
+
 
 

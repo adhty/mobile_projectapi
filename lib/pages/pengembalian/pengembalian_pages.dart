@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:sisfo_sarpas/pages/riwayat/riwayat_pengembalian_page.dart';
 import 'pengembalian_service.dart';
 import '../peminjaman/peminjaman_model.dart';
-import 'riwayat_pengembalian_page.dart';
 
 class PengembalianPage extends StatefulWidget {
   const PengembalianPage({super.key});
@@ -20,7 +20,6 @@ class _PengembalianPageState extends State<PengembalianPage> {
   final TextEditingController _jumlahKembaliController = TextEditingController();
   final TextEditingController _tanggalPengembalianController = TextEditingController();
 
-  // Ubah nilai kondisi barang sesuai dengan yang diharapkan backend (lowercase)
   String _kondisiBarang = 'baik';
   final List<String> _kondisiOptions = ['baik', 'rusak', 'hilang'];
 
@@ -28,7 +27,6 @@ class _PengembalianPageState extends State<PengembalianPage> {
   void initState() {
     super.initState();
     _loadPeminjamanAktif();
-    // Set tanggal hari ini sebagai default
     _tanggalPengembalianController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
   }
 
@@ -39,8 +37,6 @@ class _PengembalianPageState extends State<PengembalianPage> {
 
     try {
       final peminjamanAktif = await _service.fetchPeminjamanAktif();
-
-      // Update nama barang
       await _service.updateBarangNames(peminjamanAktif);
 
       setState(() {
@@ -64,7 +60,7 @@ class _PengembalianPageState extends State<PengembalianPage> {
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)), // Allow dates up to a year from now
+      lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -88,37 +84,61 @@ class _PengembalianPageState extends State<PengembalianPage> {
   Future<void> _showKembalikanDialog(Peminjaman peminjaman) async {
     _resetForm();
     _jumlahKembaliController.text = peminjaman.jumlah.toString();
+    final textTheme = Theme.of(context).textTheme;
 
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Kembalikan ${peminjaman.namaBarang}'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Kembalikan ${peminjaman.namaBarang}',
+            style: textTheme.titleLarge?.copyWith(
+              color: Colors.blue.shade800,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Jumlah Dipinjam: ${peminjaman.jumlah}'),
-                Text('Tanggal Pinjam: ${peminjaman.tglPinjam}'),
-                const SizedBox(height: 16),
-
-                const SizedBox(height: 16),
+                Card(
+                  color: Colors.blue.shade50,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildDialogInfoRow(Icons.inventory, 'Jumlah Dipinjam: ${peminjaman.jumlah}', textTheme),
+                        _buildDialogInfoRow(Icons.calendar_today, 'Tanggal Pinjam: ${peminjaman.tglPinjam}', textTheme),
+                      ],
+                    ),
+                  ),
+                ),
                 TextField(
                   controller: _jumlahKembaliController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Jumlah Dikembalikan',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    prefixIcon: const Icon(Icons.numbers),
                   ),
                   keyboardType: TextInputType.number,
                 ),
-
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 TextField(
                   controller: _tanggalPengembalianController,
                   decoration: InputDecoration(
                     labelText: 'Tanggal Pengembalian',
-                    border: const OutlineInputBorder(),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    prefixIcon: const Icon(Icons.event),
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.calendar_today),
                       onPressed: () => _selectDate(context),
@@ -126,18 +146,20 @@ class _PengembalianPageState extends State<PengembalianPage> {
                   ),
                   readOnly: true,
                 ),
-
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 DropdownButtonFormField<String>(
                   value: _kondisiBarang,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Kondisi Barang',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    prefixIcon: const Icon(Icons.category),
                   ),
                   items: _kondisiOptions.map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
-                      child: Text(value.substring(0, 1).toUpperCase() + value.substring(1)), // Capitalize first letter for display
+                      child: Text(value[0].toUpperCase() + value.substring(1)),
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
@@ -148,13 +170,15 @@ class _PengembalianPageState extends State<PengembalianPage> {
                     }
                   },
                 ),
-
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 TextField(
                   controller: _catatanController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Catatan (opsional)',
-                    border: OutlineInputBorder(),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    prefixIcon: const Icon(Icons.note),
                   ),
                   maxLines: 3,
                 ),
@@ -163,12 +187,19 @@ class _PengembalianPageState extends State<PengembalianPage> {
           ),
           actions: <Widget>[
             TextButton(
-              child: const Text('Batal'),
+              child: Text('Batal', style: TextStyle(color: Colors.grey.shade700)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade700,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+              ),
               child: const Text('Kembalikan'),
               onPressed: () {
                 _kembalikanBarang(peminjaman);
@@ -185,7 +216,7 @@ class _PengembalianPageState extends State<PengembalianPage> {
     _catatanController.clear();
     _jumlahKembaliController.clear();
     _tanggalPengembalianController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    _kondisiBarang = 'baik'; // Ubah ke nilai yang benar (lowercase)
+    _kondisiBarang = 'baik';
   }
 
   Future<void> _kembalikanBarang(Peminjaman peminjaman) async {
@@ -204,15 +235,10 @@ class _PengembalianPageState extends State<PengembalianPage> {
       return;
     }
 
-    // Tampilkan loading indicator
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(
-          child: CircularProgressIndicator(),
-        );
-      },
+      builder: (BuildContext context) => const Center(child: CircularProgressIndicator()),
     );
 
     final data = {
@@ -222,17 +248,13 @@ class _PengembalianPageState extends State<PengembalianPage> {
       'catatan': _catatanController.text,
       'status': 'menunggu',
       'jumlah_kembali': jumlahKembali,
-      // biaya_denda akan dihitung oleh backend
     };
 
     try {
       final success = await _service.kembalikanBarang(data);
-
-      // Tutup loading indicator
       Navigator.of(context).pop();
 
       if (success) {
-        // Update status pengembalian
         setState(() {
           peminjaman.sudahDikembalikan = true;
         });
@@ -243,7 +265,7 @@ class _PengembalianPageState extends State<PengembalianPage> {
             backgroundColor: Colors.green,
           ),
         );
-        _loadPeminjamanAktif(); // Refresh data
+        _loadPeminjamanAktif();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -253,7 +275,6 @@ class _PengembalianPageState extends State<PengembalianPage> {
         );
       }
     } catch (e) {
-      // Tutup loading indicator
       Navigator.of(context).pop();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -267,21 +288,22 @@ class _PengembalianPageState extends State<PengembalianPage> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pengembalian Barang'),
-        backgroundColor: Colors.blue.shade700,
-        foregroundColor: Colors.white,
-        elevation: 2,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const RiwayatPengembalianPage(),
-                ),
+                MaterialPageRoute(builder: (context) => const RiwayatPengembalianPage()),
               );
             },
             tooltip: 'Lihat Riwayat Pengembalian',
@@ -289,117 +311,457 @@ class _PengembalianPageState extends State<PengembalianPage> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.blue.shade50, Colors.white],
-                ),
+                color: colorScheme.surface,
               ),
               child: _peminjamanAktif.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Tidak ada peminjaman aktif',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _peminjamanAktif.length,
-                      itemBuilder: (context, index) {
-                        final peminjaman = _peminjamanAktif[index];
-                        return Card(
-                          elevation: 3,
-                          margin: const EdgeInsets.only(bottom: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  peminjaman.namaBarang != 'Barang tidak diketahui'
-                                      ? peminjaman.namaBarang
-                                      : 'Barang ID: ${peminjaman.idBarang}',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text('Jumlah: ${peminjaman.jumlah}'),
-                                Text('Tanggal Pinjam: ${peminjaman.tglPinjam}'),
-                                Text('Alasan: ${peminjaman.alasanPinjam}'),
-                                const SizedBox(height: 16),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    if (!peminjaman.sudahDikembalikan)
-                                      ElevatedButton.icon(
-                                        onPressed: () => _showKembalikanDialog(peminjaman),
-                                        icon: const Icon(Icons.assignment_return),
-                                        label: const Text('Kembalikan'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.blue.shade700,
-                                          foregroundColor: Colors.white,
-                                        ),
-                                      )
-                                    else
-                                      Chip(
-                                        label: const Text('Sudah Dikembalikan'),
-                                        backgroundColor: Colors.green.shade100,
-                                        labelStyle: TextStyle(color: Colors.green.shade800),
-                                      ),
-                                  ],
-                                ),
-                              ],
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.inventory_2_outlined, 
+                               size: 64, 
+                               color: colorScheme.primary.withOpacity(0.5)),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Tidak ada peminjaman aktif',
+                            style: textTheme.titleMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
-                        );
-                      },
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      color: colorScheme.primary,
+                      onRefresh: _loadPeminjamanAktif,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                        itemCount: _peminjamanAktif.length,
+                        itemBuilder: (context, index) {
+                          final peminjaman = _peminjamanAktif[index];
+                          return Card(
+                            elevation: 2,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: peminjaman.sudahDikembalikan
+                                    ? colorScheme.tertiary
+                                    : Colors.transparent,
+                                width: 1.5,
+                              ),
+                            ),
+                            color: peminjaman.sudahDikembalikan
+                                ? colorScheme.tertiaryContainer
+                                : colorScheme.surfaceContainerLow,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () => !peminjaman.sudahDikembalikan
+                                  ? _showKembalikanDialog(peminjaman)
+                                  : null,
+                              splashColor: peminjaman.sudahDikembalikan 
+                                  ? Colors.transparent 
+                                  : colorScheme.primary.withOpacity(0.1),
+                              highlightColor: peminjaman.sudahDikembalikan 
+                                  ? Colors.transparent 
+                                  : colorScheme.primary.withOpacity(0.05),
+                              child: Stack(
+                                children: [
+                                  if (peminjaman.sudahDikembalikan)
+                                    Positioned(
+                                      top: 12,
+                                      right: 12,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.tertiaryContainer,
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: colorScheme.tertiary),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.pending_actions, size: 16, color: colorScheme.tertiary),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Menunggu Persetujuan',
+                                              style: textTheme.labelSmall?.copyWith(
+                                                color: colorScheme.onTertiaryContainer,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(18),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          peminjaman.namaBarang != 'Barang tidak diketahui'
+                                              ? peminjaman.namaBarang
+                                              : 'Barang ID: ${peminjaman.idBarang}',
+                                          style: textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: peminjaman.sudahDikembalikan
+                                                ? colorScheme.onTertiaryContainer
+                                                : colorScheme.primary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 14),
+                                        _buildInfoRow(Icons.inventory, 'Jumlah: ${peminjaman.jumlah}', textTheme, colorScheme),
+                                        _buildInfoRow(Icons.calendar_today, 'Tanggal Pinjam: ${peminjaman.tglPinjam}', textTheme, colorScheme),
+                                        _buildInfoRow(Icons.notes, 'Alasan: ${peminjaman.alasanPinjam}', textTheme, colorScheme),
+                                        const SizedBox(height: 18),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            if (!peminjaman.sudahDikembalikan)
+                                              FilledButton.icon(
+                                                onPressed: () => _showKembalikanDialog(peminjaman),
+                                                icon: const Icon(Icons.assignment_return, size: 20),
+                                                label: const Text('Kembalikan'),
+                                                style: FilledButton.styleFrom(
+                                                  foregroundColor: colorScheme.onPrimary,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                                ),
+                                              ),
+                                            if (peminjaman.sudahDikembalikan)
+                                              Row(
+                                                children: [
+                                                  OutlinedButton.icon(
+                                                    onPressed: () => _showTolakDialog(peminjaman),
+                                                    icon: const Icon(Icons.cancel, size: 20),
+                                                    label: const Text('Tolak'),
+                                                    style: OutlinedButton.styleFrom(
+                                                      foregroundColor: colorScheme.error,
+                                                      side: BorderSide(color: colorScheme.error),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  FilledButton.icon(
+                                                    onPressed: () => _showSetujuDialog(peminjaman),
+                                                    icon: const Icon(Icons.check_circle, size: 20),
+                                                    label: const Text('Setuju'),
+                                                    style: FilledButton.styleFrom(
+                                                      backgroundColor: colorScheme.tertiary,
+                                                      foregroundColor: colorScheme.onTertiary,
+                                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _loadPeminjamanAktif,
-        backgroundColor: Colors.blue.shade700,
-        child: const Icon(Icons.refresh),
+      backgroundColor: Colors.grey.shade100,
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text, TextTheme textTheme, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  @override
-  void dispose() {
-    _catatanController.dispose();
-    _jumlahKembaliController.dispose();
-    _tanggalPengembalianController.dispose();
-    super.dispose();
+  Widget _buildDialogInfoRow(IconData icon, String text, TextTheme textTheme) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.blue.shade700),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: textTheme.bodyMedium?.copyWith(color: Colors.blue.shade700, fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showSetujuDialog(Peminjaman peminjaman) async {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final TextEditingController catatanController = TextEditingController();
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          backgroundColor: colorScheme.surface,
+          title: Text(
+            'Setujui Pengembalian',
+            style: textTheme.titleLarge?.copyWith(
+              color: colorScheme.tertiary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Anda yakin ingin menyetujui pengembalian ${peminjaman.namaBarang}?',
+                  style: textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: catatanController,
+                  decoration: InputDecoration(
+                    labelText: 'Catatan (opsional)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: colorScheme.surfaceVariant,
+                    prefixIcon: const Icon(Icons.note),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colorScheme.tertiary, width: 2),
+                    ),
+                  ),
+                  maxLines: 3,
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Batal', style: TextStyle(color: colorScheme.primary)),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.tertiary,
+                foregroundColor: colorScheme.onTertiary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              onPressed: () {
+                _setujuiPengembalian(peminjaman, catatanController.text);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Setuju'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showTolakDialog(Peminjaman peminjaman) async {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final TextEditingController alasanController = TextEditingController();
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          backgroundColor: colorScheme.surface,
+          title: Text(
+            'Tolak Pengembalian',
+            style: textTheme.titleLarge?.copyWith(
+              color: colorScheme.error,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Anda yakin ingin menolak pengembalian ${peminjaman.namaBarang}?',
+                  style: textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: alasanController,
+                  decoration: InputDecoration(
+                    labelText: 'Alasan Penolakan',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: colorScheme.surfaceVariant,
+                    prefixIcon: const Icon(Icons.report_problem),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colorScheme.error, width: 2),
+                    ),
+                  ),
+                  maxLines: 3,
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Batal', style: TextStyle(color: colorScheme.primary)),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              onPressed: () {
+                _tolakPengembalian(peminjaman, alasanController.text);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Tolak'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _setujuiPengembalian(Peminjaman peminjaman, String catatan) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final data = {
+        'peminjaman_id': peminjaman.id,
+        'status': 'disetujui',
+        'catatan': catatan,
+      };
+
+      final success = await _service.updateStatusPengembalian(data);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pengembalian berhasil disetujui'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _loadPeminjamanAktif();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menyetujui pengembalian. Silakan coba lagi.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _tolakPengembalian(Peminjaman peminjaman, String alasan) async {
+    if (alasan.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Alasan penolakan harus diisi'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final data = {
+        'peminjaman_id': peminjaman.id,
+        'status': 'ditolak',
+        'catatan': alasan,
+      };
+
+      final success = await _service.updateStatusPengembalian(data);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pengembalian berhasil ditolak'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        _loadPeminjamanAktif();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menolak pengembalian. Silakan coba lagi.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

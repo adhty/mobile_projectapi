@@ -35,13 +35,15 @@ class Peminjaman {
 
     // Coba dapatkan ID barang
     if (json.containsKey('barang_id')) {
-      idBarang = json['barang_id'] is int
-          ? json['barang_id']
-          : int.tryParse(json['barang_id'].toString()) ?? 0;
+      idBarang =
+          json['barang_id'] is int
+              ? json['barang_id']
+              : int.tryParse(json['barang_id'].toString()) ?? 0;
     } else if (json.containsKey('id_barang')) {
-      idBarang = json['id_barang'] is int
-          ? json['id_barang']
-          : int.tryParse(json['id_barang'].toString()) ?? 0;
+      idBarang =
+          json['id_barang'] is int
+              ? json['id_barang']
+              : int.tryParse(json['id_barang'].toString()) ?? 0;
     }
 
     // Cek apakah ada objek barang
@@ -61,32 +63,43 @@ class Peminjaman {
 
     // Jika jumlah ada di root JSON
     if (json.containsKey('jumlah')) {
-      jumlah = json['jumlah'] is int
-          ? json['jumlah']
-          : int.tryParse(json['jumlah'].toString()) ?? 1;
+      jumlah =
+          json['jumlah'] is int
+              ? json['jumlah']
+              : int.tryParse(json['jumlah'].toString()) ?? 1;
     }
 
     // Cek status pengembalian
     if (json.containsKey('status_pengembalian')) {
-      sudahDikembalikan = json['status_pengembalian'] == true ||
-                          json['status_pengembalian'] == 'true' ||
-                          json['status_pengembalian'] == 1 ||
-                          json['status_pengembalian'] == '1';
+      sudahDikembalikan =
+          json['status_pengembalian'] == true ||
+          json['status_pengembalian'] == 'true' ||
+          json['status_pengembalian'] == 1 ||
+          json['status_pengembalian'] == '1';
     } else if (json.containsKey('sudah_dikembalikan')) {
-      sudahDikembalikan = json['sudah_dikembalikan'] == true ||
-                          json['sudah_dikembalikan'] == 'true' ||
-                          json['sudah_dikembalikan'] == 1 ||
-                          json['sudah_dikembalikan'] == '1';
+      sudahDikembalikan =
+          json['sudah_dikembalikan'] == true ||
+          json['sudah_dikembalikan'] == 'true' ||
+          json['sudah_dikembalikan'] == 1 ||
+          json['sudah_dikembalikan'] == '1';
     } else if (json.containsKey('pengembalian')) {
       // Jika ada objek pengembalian, berarti sudah dikembalikan
       sudahDikembalikan = json['pengembalian'] != null;
     }
 
-    print('Hasil parsing: id_barang=$idBarang, nama=$namaBarang, jumlah=$jumlah, sudahDikembalikan=$sudahDikembalikan');
+    print(
+      'Hasil parsing: id_barang=$idBarang, nama=$namaBarang, jumlah=$jumlah, sudahDikembalikan=$sudahDikembalikan',
+    );
 
     return Peminjaman(
-      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
-      idUser: json['user_id'] is int ? json['user_id'] : int.tryParse(json['user_id'].toString()) ?? 0,
+      id:
+          json['id'] is int
+              ? json['id']
+              : int.tryParse(json['id'].toString()) ?? 0,
+      idUser:
+          json['user_id'] is int
+              ? json['user_id']
+              : int.tryParse(json['user_id'].toString()) ?? 0,
       idBarang: idBarang,
       alasanPinjam: json['alasan_pinjam'] ?? '',
       jumlah: jumlah,

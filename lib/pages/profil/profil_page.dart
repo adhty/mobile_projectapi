@@ -238,13 +238,6 @@ class _ProfilPageState extends State<ProfilPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const Divider(),
-                        _buildInfoItem(Icons.email, 'Email', _userProfile!.email),
-                        _buildInfoItem(
-                          Icons.phone, 
-                          'Telepon', 
-                          _userProfile!.phone ?? 'Belum diatur'
-                        ),
                         _buildInfoItem(
                           Icons.calendar_today, 
                           'Bergabung Sejak', 
