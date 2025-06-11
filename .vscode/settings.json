@@ -1,3 +1,4 @@
 {
-    "dart.flutterSdkPath": "C:\\flutter"
+    "dart.flutterSdkPath": "C:\\flutter",
+    "cmake.sourceDirectory": "C:/Semester 2/PBO/mobile_projectapi/linux"
 }

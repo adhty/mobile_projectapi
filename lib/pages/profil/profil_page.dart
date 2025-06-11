@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'profil_service.dart';
 import 'profil_model.dart';
+import '../peminjaman/peminjaman_service.dart';
+import '../pengembalian/pengembalian_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfilPage extends StatefulWidget {
   const ProfilPage({super.key});
@@ -11,14 +15,37 @@ class ProfilPage extends StatefulWidget {
 
 class _ProfilPageState extends State<ProfilPage> {
   final ProfileService _service = ProfileService();
+  final PeminjamanService _peminjamanService = PeminjamanService();
+  final PengembalianService _pengembalianService = PengembalianService();
+
   bool _isLoading = true;
+  bool _isLoadingStats = false;
   UserProfile? _userProfile;
   String _errorMessage = '';
+
+  // Statistics
+  int _totalPeminjaman = 0;
+  int _totalPengembalian = 0;
+  int _peminjamanAktif = 0;
+
+  // Edit profile controllers
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
+    _loadStatistics();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserProfile() async {
@@ -33,11 +60,41 @@ class _ProfilPageState extends State<ProfilPage> {
         _userProfile = profile;
         _isLoading = false;
       });
+
+      // Initialize controllers with current data
+      _nameController.text = profile.name;
+      _emailController.text = profile.email;
+      _phoneController.text = profile.phone ?? '';
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadStatistics() async {
+    setState(() {
+      _isLoadingStats = true;
+    });
+
+    try {
+      // Load peminjaman statistics
+      final riwayatPeminjaman = await _peminjamanService.fetchRiwayatPeminjaman();
+      final peminjamanAktif = await _pengembalianService.fetchPeminjamanAktif();
+      final riwayatPengembalian = await _pengembalianService.fetchRiwayatPengembalian();
+
+      setState(() {
+        _totalPeminjaman = riwayatPeminjaman.length;
+        _totalPengembalian = riwayatPengembalian.length;
+        _peminjamanAktif = peminjamanAktif.length;
+        _isLoadingStats = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingStats = false;
+      });
+      print('Error loading statistics: $e');
     }
   }
 
@@ -65,7 +122,19 @@ class _ProfilPageState extends State<ProfilPage> {
                 ),
               );
               
-              final success = await _service.logout();
+              // Tambahkan timeout untuk logout
+              bool success = false;
+              try {
+                success = await _service.logout().timeout(
+                  const Duration(seconds: 2),
+                  onTimeout: () {
+                    print('Logout timeout');
+                    return false;
+                  },
+                );
+              } catch (e) {
+                print('Error during logout: $e');
+              }
               
               if (!mounted) return;
               
@@ -73,15 +142,128 @@ class _ProfilPageState extends State<ProfilPage> {
               Navigator.pop(context);
               
               if (success) {
-                // Kembali ke halaman login
+                // Kembali ke halaman login jika berhasil
                 Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
               } else {
+                // Jika gagal, tetap logout secara lokal
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.clear(); // Hapus semua data lokal
+                
+                // Kembali ke halaman login jika berhasil
+                Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+                
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Gagal logout. Silakan coba lagi.')),
+                  const SnackBar(content: Text('Logout lokal berhasil, tapi server tidak merespons')),
                 );
               }
             },
             child: const Text('Logout', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showEditProfileDialog() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Profil'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nama',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Nomor Telepon',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStatistics() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Statistik Aktivitas'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildStatItem('Total Peminjaman', _totalPeminjaman, Icons.arrow_circle_down, Colors.blue),
+            _buildStatItem('Total Pengembalian', _totalPengembalian, Icons.arrow_circle_up, Colors.green),
+            _buildStatItem('Peminjaman Aktif', _peminjamanAktif, Icons.pending, Colors.orange),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, int value, IconData icon, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: color.withValues(alpha: 0.1),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                Text(
+                  value.toString(),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -96,6 +278,11 @@ class _ProfilPageState extends State<ProfilPage> {
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.analytics),
+            onPressed: _showStatistics,
+            tooltip: 'Statistik',
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
@@ -218,6 +405,117 @@ class _ProfilPageState extends State<ProfilPage> {
                 ),
               ),
               
+              // Menu Aksi
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Menu',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.blue.shade100,
+                            child: Icon(Icons.history, color: Colors.blue.shade700),
+                          ),
+                          title: const Text('Riwayat Aktivitas'),
+                          subtitle: const Text('Lihat riwayat peminjaman dan pengembalian'),
+                          trailing: const Icon(Icons.arrow_forward_ios),
+                          onTap: () {
+                            Navigator.pushNamed(context, '/riwayat');
+                          },
+                        ),
+                        const Divider(),
+                        const Divider(),
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.orange.shade100,
+                            child: Icon(Icons.analytics, color: Colors.orange.shade700),
+                          ),
+                          title: const Text('Statistik'),
+                          subtitle: const Text('Lihat statistik aktivitas Anda'),
+                          trailing: const Icon(Icons.arrow_forward_ios),
+                          onTap: _showStatistics,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Statistics Card
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Statistik Singkat',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_isLoadingStats)
+                          const Center(child: CircularProgressIndicator())
+                        else
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildQuickStatCard(
+                                  'Peminjaman',
+                                  _totalPeminjaman.toString(),
+                                  Icons.arrow_circle_down,
+                                  Colors.blue,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildQuickStatCard(
+                                  'Pengembalian',
+                                  _totalPengembalian.toString(),
+                                  Icons.arrow_circle_up,
+                                  Colors.green,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildQuickStatCard(
+                                  'Aktif',
+                                  _peminjamanAktif.toString(),
+                                  Icons.pending,
+                                  Colors.orange,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
               // Informasi profil
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -239,10 +537,25 @@ class _ProfilPageState extends State<ProfilPage> {
                           ),
                         ),
                         _buildInfoItem(
-                          Icons.calendar_today, 
-                          'Bergabung Sejak', 
-                          _userProfile!.createdAt != null 
-                              ? _formatDate(_userProfile!.createdAt!) 
+                          Icons.person,
+                          'Nama',
+                          _userProfile!.name,
+                        ),
+                        _buildInfoItem(
+                          Icons.email,
+                          'Email',
+                          _userProfile!.email,
+                        ),
+                        _buildInfoItem(
+                          Icons.badge,
+                          'Role',
+                          _userProfile!.role.toUpperCase(),
+                        ),
+                        _buildInfoItem(
+                          Icons.calendar_today,
+                          'Bergabung Sejak',
+                          _userProfile!.createdAt != null
+                              ? _formatDate(_userProfile!.createdAt!)
                               : 'Tidak diketahui'
                         ),
                       ],
@@ -291,6 +604,39 @@ class _ProfilPageState extends State<ProfilPage> {
     );
   }
 
+  Widget _buildQuickStatCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   String _formatDate(String dateString) {
     try {
       final date = DateTime.parse(dateString);
@@ -300,4 +646,7 @@ class _ProfilPageState extends State<ProfilPage> {
     }
   }
 }
+
+
+
 

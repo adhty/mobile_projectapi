@@ -101,11 +101,17 @@ class PengembalianService {
         'jumlah_kembali': data['jumlah_kembali'],
       };
 
+      print('Mengirim data pengembalian: $formattedData');
+      print('Headers: $headers');
+
       final response = await http.post(
         Uri.parse('$baseUrl/pengembalian'),
         headers: headers,
         body: jsonEncode(formattedData),
       );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
@@ -116,23 +122,38 @@ class PengembalianService {
 
   Future<List<Pengembalian>> fetchRiwayatPengembalian() async {
     final userId = await _getUserId();
-    if (userId == null) return [];
+    if (userId == null) {
+      print('User ID tidak ditemukan');
+      return [];
+    }
+    print('Fetching pengembalian for user ID: $userId');
 
     try {
       final headers = await _getHeaders();
+      // Coba endpoint dengan include untuk mendapatkan data relasi
       final response = await http.get(
-        Uri.parse('$baseUrl/pengembalian/user/$userId'),
+        Uri.parse('$baseUrl/pengembalian/user/$userId?include=peminjaman,barang'),
         headers: headers,
       );
 
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
+        print('JSON data type: ${jsonData.runtimeType}');
+        
         if (jsonData is Map && jsonData.containsKey('data')) {
           final List<dynamic> jsonList = jsonData['data'];
+          print('Found ${jsonList.length} pengembalian records');
           return jsonList.map((json) => Pengembalian.fromJson(json)).toList();
         } else if (jsonData is List) {
+          print('Found ${jsonData.length} pengembalian records (list format)');
           return jsonData.map((json) => Pengembalian.fromJson(json)).toList();
         }
+        print('Unexpected response format');
+      } else {
+        print('Error response: ${response.statusCode} - ${response.body}');
       }
       return [];
     } catch (e) {
@@ -163,5 +184,78 @@ class PengembalianService {
       return false;
     }
   }
+
+  Future<void> updatePengembalianBarangNames(List<Pengembalian> pengembalianList) async {
+    try {
+      final barangService = BarangService();
+      final allBarang = await barangService.fetchBarang();
+
+      // Dapatkan semua peminjaman untuk mendapatkan informasi barang
+      final peminjamanList = await fetchPeminjamanAktif();
+
+      for (var pengembalian in pengembalianList) {
+        if (pengembalian.namaBarang == 'Barang tidak diketahui' || pengembalian.namaBarang.isEmpty) {
+          int idBarang = 0;
+
+          // Coba dapatkan ID barang dari peminjaman jika tersedia
+          if (pengembalian.idPeminjaman != null && pengembalian.idPeminjaman is Map) {
+            idBarang = (pengembalian.idPeminjaman as Map)['barang_id'] ??
+                      (pengembalian.idPeminjaman as Map)['id_barang'] ?? 0;
+          } else if (pengembalian.idPeminjaman != null && pengembalian.idPeminjaman is int) {
+            // Jika idPeminjaman adalah integer, cari peminjaman yang sesuai
+            final peminjamanId = pengembalian.idPeminjaman as int;
+            final peminjaman = peminjamanList.firstWhere(
+              (p) => p.id == peminjamanId,
+              orElse: () => Peminjaman(
+                id: 0,
+                idUser: 0,
+                idBarang: 0,
+                alasanPinjam: '',
+                jumlah: 0,
+                tglPinjam: '',
+                status: '',
+                namaBarang: '',
+              ),
+            );
+            if (peminjaman.id > 0) {
+              idBarang = peminjaman.idBarang;
+              // Jika peminjaman sudah punya nama barang, gunakan itu
+              if (peminjaman.namaBarang.isNotEmpty && peminjaman.namaBarang != 'Barang tidak diketahui') {
+                pengembalian.namaBarang = peminjaman.namaBarang;
+                continue;
+              }
+            }
+          }
+
+          // Jika masih belum dapat ID barang, coba cari dari daftar barang
+          if (idBarang > 0) {
+            final barang = allBarang.firstWhere(
+              (b) => b.id == idBarang,
+              orElse: () => Barang(
+                id: 0,
+                nama: 'Barang tidak diketahui',
+                jumlahBarang: 0,
+                foto: '',
+                idKategori: 0,
+              ),
+            );
+            if (barang.id > 0) {
+              pengembalian.namaBarang = barang.nama;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error updating pengembalian barang names: $e');
+    }
+  }
 }
+
+
+
+
+
+
+
+
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sisfo_sarpas/pages/barang/barang_pages.dart';
 import 'package:sisfo_sarpas/pages/peminjaman/peminjaman_pages.dart';
 import 'package:sisfo_sarpas/pages/pengembalian/pengembalian_pages.dart';
-import 'package:sisfo_sarpas/pages/riwayat/riwayat_pengembalian_page.dart';
+import 'package:sisfo_sarpas/pages/riwayat/riwayat_enhanced_page.dart';
 import 'package:sisfo_sarpas/pages/profil/profil_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -19,7 +19,7 @@ class _HomePageState extends State<HomePage> {
     BarangPage(),
     PeminjamanPage(),
     PengembalianPage(),
-    RiwayatPengembalianPage(),
+    RiwayatEnhancedPage(),
     ProfilPage(), // Tambahkan halaman profil
   ];
 
@@ -27,7 +27,7 @@ class _HomePageState extends State<HomePage> {
     'Daftar Barang',
     'Peminjaman',
     'Pengembalian',
-    'Riwayat Pengembalian',
+    'Riwayat',
     'Profil',
   ];
 

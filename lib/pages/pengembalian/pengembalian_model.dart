@@ -1,91 +1,80 @@
 class Pengembalian {
   final int id;
-  final int peminjamanId;
-  final String tanggalPengembalian;
-  final String kondisiBarang;
-  final String? catatan;
+  final dynamic idPeminjaman; // Bisa int atau Map untuk data peminjaman lengkap
+  final int jumlah;
+  final String tanggalKembali;
+  final String kondisi;
+  final String catatan;
   final String status;
-  final int jumlahKembali;
-  final String? namaPengembalian;
-  final double? biayaDenda;
-  final Map<String, dynamic>? peminjaman;
-  final String? namaPeminjam;
-  final String namaBarang;
+  String namaBarang;
 
   Pengembalian({
     required this.id,
-    required this.peminjamanId,
-    required this.tanggalPengembalian,
-    required this.kondisiBarang,
-    this.catatan,
-    required this.status,
-    required this.jumlahKembali,  
-    this.namaPengembalian,
-    this.biayaDenda,
-    this.peminjaman,
-    this.namaPeminjam,
-    required this.namaBarang,
+    required this.idPeminjaman,
+    required this.jumlah,
+    required this.tanggalKembali,
+    required this.kondisi,
+    required this.catatan,
+    this.status = 'selesai',
+    this.namaBarang = '',
   });
 
   factory Pengembalian.fromJson(Map<String, dynamic> json) {
+    // Print untuk debugging
+    print('Parsing pengembalian JSON: $json');
+
     // Ekstrak nama barang
     String namaBarang = 'Barang tidak diketahui';
-    
-    // Coba ambil dari objek peminjaman jika ada
-    if (json['peminjaman'] != null && json['peminjaman'] is Map) {
-      if (json['peminjaman']['barang'] != null && json['peminjaman']['barang'] is Map) {
-        namaBarang = json['peminjaman']['barang']['nama'] ?? 'Barang tidak diketahui';
-      } else if (json['peminjaman']['nama_barang'] != null) {
-        namaBarang = json['peminjaman']['nama_barang'];
-      }
-    }
-    
-    // Jika tidak ada di peminjaman, coba ambil langsung dari objek pengembalian
-    if (namaBarang == 'Barang tidak diketahui' && json['nama_barang'] != null) {
-      namaBarang = json['nama_barang'];
-    }
-    
-    // Ekstrak nama peminjam
-    String? namaPeminjam;
-    if (json['peminjaman'] != null && json['peminjaman'] is Map) {
-      if (json['peminjaman']['user'] != null && json['peminjaman']['user'] is Map) {
-        namaPeminjam = json['peminjaman']['user']['name'];
+
+    // Cek apakah ada objek peminjaman dengan data barang
+    if (json.containsKey('peminjaman') && json['peminjaman'] != null) {
+      final peminjaman = json['peminjaman'];
+      if (peminjaman is Map) {
+        // Cek apakah ada data barang dalam peminjaman
+        if (peminjaman.containsKey('barang') && peminjaman['barang'] != null) {
+          final barang = peminjaman['barang'];
+          if (barang is Map && barang.containsKey('nama')) {
+            namaBarang = barang['nama'].toString();
+          }
+        }
+        // Fallback ke nama_barang di level peminjaman
+        else if (peminjaman.containsKey('nama_barang')) {
+          namaBarang = peminjaman['nama_barang'].toString();
+        }
       }
     }
 
-    print('Extracted nama barang: $namaBarang');
+    // Fallback ke nama_barang langsung di root
+    if (namaBarang == 'Barang tidak diketahui' && json.containsKey('nama_barang')) {
+      namaBarang = json['nama_barang'].toString();
+    }
+
+    // Fallback ke barang langsung di root
+    if (namaBarang == 'Barang tidak diketahui' && json.containsKey('barang')) {
+      final barang = json['barang'];
+      if (barang is Map && barang.containsKey('nama')) {
+        namaBarang = barang['nama'].toString();
+      }
+    }
 
     return Pengembalian(
-      id: json['id'] ?? 0,
-      peminjamanId: json['peminjaman_id'] ?? 0,
-      tanggalPengembalian: json['tanggal_pengembalian'] ?? '',
-      kondisiBarang: json['kondisi_barang'] ?? 'baik',
-      catatan: json['catatan'],
-      status: json['status'] ?? 'menunggu',
-      jumlahKembali: json['jumlah_kembali'] is int
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      idPeminjaman: json['peminjaman_id'] ?? json['peminjaman'] ?? 0,
+      jumlah: json['jumlah_kembali'] is int
           ? json['jumlah_kembali']
-          : int.tryParse(json['jumlah_kembali'].toString()) ?? 0,
-      namaPengembalian: json['nama_pengembalian'],
-      biayaDenda: json['biaya_denda'] != null
-          ? double.tryParse(json['biaya_denda'].toString())
-          : null,
-      peminjaman: json['peminjaman'],
-      namaPeminjam: namaPeminjam,
+          : json['jumlah'] is int
+              ? json['jumlah']
+              : int.tryParse((json['jumlah_kembali'] ?? json['jumlah'] ?? '1').toString()) ?? 1,
+      tanggalKembali: json['tanggal_pengembalian'] ?? json['tanggal_kembali'] ?? '',
+      kondisi: json['kondisi_barang'] ?? json['kondisi'] ?? 'baik',
+      catatan: json['catatan'] ?? '',
+      status: json['status'] ?? 'selesai',
       namaBarang: namaBarang,
     );
   }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'peminjaman_id': peminjamanId,
-      'tanggal_pengembalian': tanggalPengembalian,
-      'kondisi_barang': kondisiBarang,
-      'catatan': catatan,
-      'status': status,
-      'jumlah_kembali': jumlahKembali,
-    };
-  }
 }
+
+
 
 
 

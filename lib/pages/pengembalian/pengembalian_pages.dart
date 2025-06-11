@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:sisfo_sarpas/pages/riwayat/riwayat_pengembalian_page.dart';
 import 'pengembalian_service.dart';
 import '../peminjaman/peminjaman_model.dart';
 
@@ -11,23 +10,53 @@ class PengembalianPage extends StatefulWidget {
   State<PengembalianPage> createState() => _PengembalianPageState();
 }
 
-class _PengembalianPageState extends State<PengembalianPage> {
+class _PengembalianPageState extends State<PengembalianPage> with TickerProviderStateMixin {
   final PengembalianService _service = PengembalianService();
   bool _isLoading = true;
   List<Peminjaman> _peminjamanAktif = [];
+  List<Peminjaman> _filteredPeminjaman = [];
 
   final TextEditingController _catatanController = TextEditingController();
   final TextEditingController _jumlahKembaliController = TextEditingController();
   final TextEditingController _tanggalPengembalianController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
   String _kondisiBarang = 'baik';
   final List<String> _kondisiOptions = ['baik', 'rusak', 'hilang'];
 
+  // Search and filter variables
+  bool _isSearching = false;
+  String _selectedFilter = 'Semua';
+  String _selectedSort = 'Terbaru';
+  final List<String> _filterOptions = ['Semua', 'Belum Dikembalikan', 'Menunggu Persetujuan'];
+  final List<String> _sortOptions = ['Terbaru', 'Terlama', 'Nama A-Z', 'Nama Z-A'];
+
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
     _loadPeminjamanAktif();
     _tanggalPengembalianController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    _searchController.addListener(_filterData);
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _searchController.dispose();
+    _catatanController.dispose();
+    _jumlahKembaliController.dispose();
+    _tanggalPengembalianController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPeminjamanAktif() async {
@@ -41,8 +70,11 @@ class _PengembalianPageState extends State<PengembalianPage> {
 
       setState(() {
         _peminjamanAktif = peminjamanAktif;
+        _filteredPeminjaman = peminjamanAktif;
         _isLoading = false;
       });
+      _animationController.forward();
+      _applyFiltersAndSort();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -53,6 +85,206 @@ class _PengembalianPageState extends State<PengembalianPage> {
         );
       }
     }
+  }
+
+  void _filterData() {
+    setState(() {
+      _filteredPeminjaman = _peminjamanAktif.where((peminjaman) {
+        final searchTerm = _searchController.text.toLowerCase();
+        final namaBarang = peminjaman.namaBarang.toLowerCase();
+        final alasanPinjam = peminjaman.alasanPinjam.toLowerCase();
+
+        final matchesSearch = namaBarang.contains(searchTerm) ||
+                             alasanPinjam.contains(searchTerm);
+
+        return matchesSearch;
+      }).toList();
+    });
+    _applyFiltersAndSort();
+  }
+
+  void _applyFiltersAndSort() {
+    setState(() {
+      // Apply filters
+      _filteredPeminjaman = _peminjamanAktif.where((peminjaman) {
+        final searchTerm = _searchController.text.toLowerCase();
+        final namaBarang = peminjaman.namaBarang.toLowerCase();
+        final alasanPinjam = peminjaman.alasanPinjam.toLowerCase();
+
+        final matchesSearch = searchTerm.isEmpty ||
+                             namaBarang.contains(searchTerm) ||
+                             alasanPinjam.contains(searchTerm);
+
+        bool matchesFilter = true;
+        switch (_selectedFilter) {
+          case 'Belum Dikembalikan':
+            matchesFilter = !peminjaman.sudahDikembalikan;
+            break;
+          case 'Menunggu Persetujuan':
+            matchesFilter = peminjaman.sudahDikembalikan;
+            break;
+          default:
+            matchesFilter = true;
+        }
+
+        return matchesSearch && matchesFilter;
+      }).toList();
+
+      // Apply sorting
+      switch (_selectedSort) {
+        case 'Terlama':
+          _filteredPeminjaman.sort((a, b) => a.tglPinjam.compareTo(b.tglPinjam));
+          break;
+        case 'Nama A-Z':
+          _filteredPeminjaman.sort((a, b) => a.namaBarang.compareTo(b.namaBarang));
+          break;
+        case 'Nama Z-A':
+          _filteredPeminjaman.sort((a, b) => b.namaBarang.compareTo(a.namaBarang));
+          break;
+        default: // Terbaru
+          _filteredPeminjaman.sort((a, b) => b.tglPinjam.compareTo(a.tglPinjam));
+      }
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchController.clear();
+        _filterData();
+      }
+    });
+  }
+
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Filter & Urutkan', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Filter berdasarkan:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: _filterOptions.map((filter) {
+                  return FilterChip(
+                    label: Text(filter),
+                    selected: _selectedFilter == filter,
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedFilter = filter;
+                      });
+                      Navigator.pop(context);
+                      _applyFiltersAndSort();
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              const Text('Urutkan berdasarkan:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: _sortOptions.map((sort) {
+                  return FilterChip(
+                    label: Text(sort),
+                    selected: _selectedSort == sort,
+                    onSelected: (selected) {
+                      setState(() {
+                        _selectedSort = sort;
+                      });
+                      Navigator.pop(context);
+                      _applyFiltersAndSort();
+                    },
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedFilter = 'Semua';
+                  _selectedSort = 'Terbaru';
+                });
+                Navigator.pop(context);
+                _applyFiltersAndSort();
+              },
+              child: const Text('Reset'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showStatistics() {
+    final totalItems = _peminjamanAktif.length;
+    final belumDikembalikan = _peminjamanAktif.where((p) => !p.sudahDikembalikan).length;
+    final menungguPersetujuan = _peminjamanAktif.where((p) => p.sudahDikembalikan).length;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Statistik Pengembalian', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildStatCard('Total Peminjaman Aktif', totalItems.toString(), Icons.inventory, Colors.blue),
+              const SizedBox(height: 12),
+              _buildStatCard('Belum Dikembalikan', belumDikembalikan.toString(), Icons.pending, Colors.orange),
+              const SizedBox(height: 12),
+              _buildStatCard('Menunggu Persetujuan', menungguPersetujuan.toString(), Icons.hourglass_empty, Colors.green),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 32),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -252,20 +484,74 @@ class _PengembalianPageState extends State<PengembalianPage> {
 
     try {
       final success = await _service.kembalikanBarang(data);
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(); // Tutup loading dialog
 
       if (success) {
         setState(() {
           peminjaman.sudahDikembalikan = true;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Berhasil mengajukan pengembalian barang'),
-            backgroundColor: Colors.green,
-          ),
+        // Tampilkan alert sukses yang lebih informatif
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            final colorScheme = Theme.of(context).colorScheme;
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 28),
+                  const SizedBox(width: 10),
+                  const Text('Pengembalian Berhasil'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pengembalian ${peminjaman.namaBarang} telah berhasil diajukan.',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colorScheme.outline.withOpacity(0.5)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildDetailRow('Barang', peminjaman.namaBarang),
+                        _buildDetailRow('Jumlah Dikembalikan', jumlahKembali.toString()),
+                        _buildDetailRow('Tanggal Pengembalian', _tanggalPengembalianController.text),
+                        _buildDetailRow('Kondisi Barang', _kondisiBarang),
+                        if (_catatanController.text.isNotEmpty)
+                          _buildDetailRow('Catatan', _catatanController.text),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Status pengembalian Anda saat ini "Menunggu Persetujuan". Admin akan memverifikasi pengembalian Anda.',
+                    style: TextStyle(color: Colors.orange, fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _loadPeminjamanAktif(); // Refresh data
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
         );
-        _loadPeminjamanAktif();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -275,7 +561,7 @@ class _PengembalianPageState extends State<PengembalianPage> {
         );
       }
     } catch (e) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(); // Tutup loading dialog
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -286,6 +572,28 @@ class _PengembalianPageState extends State<PengembalianPage> {
     }
   }
 
+  // Helper method untuk menampilkan detail dalam alert
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -293,56 +601,135 @@ class _PengembalianPageState extends State<PengembalianPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pengembalian Barang'),
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-        elevation: 0,
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'Cari barang atau alasan...',
+                  hintStyle: TextStyle(color: Colors.white70),
+                  border: InputBorder.none,
+                ),
+              )
+            : const Text('Pengembalian Barang'),
+        backgroundColor: Colors.blue.shade700,
+        foregroundColor: Colors.white,
+        elevation: 2,
         actions: [
+          if (!_isSearching) ...[
+            IconButton(
+              icon: const Icon(Icons.filter_list),
+              onPressed: _showFilterDialog,
+              tooltip: 'Filter & Urutkan',
+            ),
+            IconButton(
+              icon: const Icon(Icons.analytics_outlined),
+              onPressed: _showStatistics,
+              tooltip: 'Statistik',
+            ),
+          ],
           IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const RiwayatPengembalianPage()),
-              );
-            },
-            tooltip: 'Lihat Riwayat Pengembalian',
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: _toggleSearch,
+            tooltip: _isSearching ? 'Tutup Pencarian' : 'Cari',
           ),
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
+          ? Center(child: CircularProgressIndicator(color: Colors.blue.shade700))
           : Container(
               decoration: BoxDecoration(
-                color: colorScheme.surface,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.blue.shade50,
+                    Colors.white,
+                  ],
+                ),
               ),
-              child: _peminjamanAktif.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
+                children: [
+                  // Summary Cards
+                  if (_peminjamanAktif.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
                         children: [
-                          Icon(Icons.inventory_2_outlined, 
-                               size: 64, 
-                               color: colorScheme.primary.withOpacity(0.5)),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Tidak ada peminjaman aktif',
-                            style: textTheme.titleMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                          Expanded(
+                            child: _buildSummaryCard(
+                              'Total Aktif',
+                              _peminjamanAktif.length.toString(),
+                              Icons.inventory,
+                              Colors.blue,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildSummaryCard(
+                              'Belum Kembali',
+                              _peminjamanAktif.where((p) => !p.sudahDikembalikan).length.toString(),
+                              Icons.pending,
+                              Colors.orange,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildSummaryCard(
+                              'Menunggu',
+                              _peminjamanAktif.where((p) => p.sudahDikembalikan).length.toString(),
+                              Icons.hourglass_empty,
+                              Colors.green,
                             ),
                           ),
                         ],
                       ),
-                    )
-                  : RefreshIndicator(
-                      color: colorScheme.primary,
-                      onRefresh: _loadPeminjamanAktif,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                        itemCount: _peminjamanAktif.length,
-                        itemBuilder: (context, index) {
-                          final peminjaman = _peminjamanAktif[index];
-                          return Card(
+                    ),
+                  ],
+
+                  // Content
+                  Expanded(
+                    child: _filteredPeminjaman.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off,
+                                     size: 64,
+                                     color: Colors.grey.shade400),
+                                const SizedBox(height: 16),
+                                Text(
+                                  _searchController.text.isNotEmpty
+                                      ? 'Tidak ada hasil pencarian'
+                                      : 'Tidak ada peminjaman aktif',
+                                  style: textTheme.titleMedium?.copyWith(
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                if (_searchController.text.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Coba kata kunci lain',
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          )
+                        : FadeTransition(
+                            opacity: _fadeAnimation,
+                            child: RefreshIndicator(
+                              color: Colors.blue.shade700,
+                              onRefresh: _loadPeminjamanAktif,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                itemCount: _filteredPeminjaman.length,
+                                itemBuilder: (context, index) {
+                                  final peminjaman = _filteredPeminjaman[index];
+                                  return Card(
                             elevation: 2,
                             margin: const EdgeInsets.only(bottom: 16),
                             shape: RoundedRectangleBorder(
@@ -469,8 +856,44 @@ class _PengembalianPageState extends State<PengembalianPage> {
                         },
                       ),
                     ),
+                  ),
+                ),
+              ],
             ),
-      backgroundColor: Colors.grey.shade100,
+          ),
+    );
+  }
+
+  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
@@ -679,13 +1102,65 @@ class _PengembalianPageState extends State<PengembalianPage> {
       Navigator.of(context).pop();
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pengembalian berhasil disetujui'),
-            backgroundColor: Colors.green,
-          ),
+        // Tampilkan alert sukses
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            final colorScheme = Theme.of(context).colorScheme;
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 28),
+                  const SizedBox(width: 10),
+                  const Text('Pengembalian Disetujui'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pengembalian ${peminjaman.namaBarang} telah berhasil disetujui.',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colorScheme.outline.withOpacity(0.5)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildDetailRow('Barang', peminjaman.namaBarang),
+                        _buildDetailRow('Status', 'Disetujui'),
+                        if (catatan.isNotEmpty)
+                          _buildDetailRow('Catatan', catatan),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Barang telah berhasil dikembalikan dan transaksi telah selesai.',
+                    style: TextStyle(color: Colors.green, fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _loadPeminjamanAktif(); // Refresh data
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
         );
-        _loadPeminjamanAktif();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -735,13 +1210,64 @@ class _PengembalianPageState extends State<PengembalianPage> {
       Navigator.of(context).pop();
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pengembalian berhasil ditolak'),
-            backgroundColor: Colors.orange,
-          ),
+        // Tampilkan alert penolakan
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            final colorScheme = Theme.of(context).colorScheme;
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  Icon(Icons.cancel, color: Colors.red, size: 28),
+                  const SizedBox(width: 10),
+                  const Text('Pengembalian Ditolak'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pengembalian ${peminjaman.namaBarang} telah ditolak.',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.errorContainer.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colorScheme.error.withOpacity(0.5)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildDetailRow('Barang', peminjaman.namaBarang),
+                        _buildDetailRow('Status', 'Ditolak'),
+                        _buildDetailRow('Alasan Penolakan', alasan),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Peminjam perlu mengajukan pengembalian ulang dengan informasi yang benar.',
+                    style: TextStyle(color: Colors.red, fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _loadPeminjamanAktif(); // Refresh data
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
         );
-        _loadPeminjamanAktif();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -762,6 +1288,5 @@ class _PengembalianPageState extends State<PengembalianPage> {
     }
   }
 }
-
 
 
